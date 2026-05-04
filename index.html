@@ -1,7 +1,6 @@
 <!DOCTYPE html>
-
 <html lang="fr">
-<head>   
+<head>
     <meta charset="UTF-8">
 
     <!-- Leaflet CSS -->
@@ -11,55 +10,102 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
+        /* --- Mise en page générale --- */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Carte responsive */
         #map {
-            height: 600px;
             width: 100%;
+            height: 60vh;
+            min-height: 300px;
         }
 
-        /* Panneau du graphique individuel */
-        #chartContainer {
-            position: absolute;
-            bottom: 20px;
-            right: 340px; /* décalé vers la gauche pour être à côté du graphique des moyennes */
-            width: 300px;
-            height: 200px;
-            background: white;
+        /* Conteneur des graphiques */
+        #chartsWrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
             padding: 10px;
-            border-radius: 8px;
-            display: none;
+            justify-content: center;
         }
 
-
-        /* Panneau du graphique des moyennes */
-        #avgChartContainer {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 300px;
-            height: 200px;
+        /* Panneaux des graphiques */
+        .chartBox {
             background: white;
-            padding: 10px;
             border-radius: 8px;
+            padding: 10px;
+            width: 320px;
+            height: 220px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        /* Bouton USB */
+        #connectBtn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 9999;
+            padding: 10px 15px;
+            font-size: 16px;
+        }
+
+        /* --- PC grands écrans --- */
+        @media (min-width: 1200px) {
+            #map {
+                height: 70vh;
+            }
+        }
+
+        /* --- Tablettes --- */
+        @media (max-width: 1024px) {
+            #map {
+                height: 55vh;
+            }
+            .chartBox {
+                width: 45%;
+            }
+        }
+
+        /* --- Smartphones --- */
+        @media (max-width: 600px) {
+            #map {
+                height: 50vh;
+            }
+
+            .chartBox {
+                width: 100%;
+                height: auto;
+            }
+
+            #connectBtn {
+                bottom: 10px;
+                left: 10px;
+                font-size: 14px;
+                padding: 8px 12px;
+            }
         }
     </style>
 </head>
+
 <body>
 
-<button id="connectBtn" style="position:absolute; top:625px; left:20px; z-index:9999;">
-  Connecter le capteur USB
-</button>
-
+<button id="connectBtn">Connecter le capteur USB</button>
 
 <div id="map"></div>
 
-<!-- Graphique individuel -->
-<div id="chartContainer">
-    <canvas id="chart"></canvas>
-</div>
+<!-- Conteneur responsive des graphiques -->
+<div id="chartsWrapper">
+    <div id="chartContainer" class="chartBox" style="display:none;">
+        <canvas id="chart"></canvas>
+    </div>
 
-<!-- Graphique des moyennes -->
-<div id="avgChartContainer">
-    <canvas id="avgChart"></canvas>
+    <div id="avgChartContainer" class="chartBox">
+        <canvas id="avgChart"></canvas>
+    </div>
 </div>
 
 <!-- Leaflet JS -->
@@ -81,12 +127,11 @@ const baseRadius = 20;
 let lockedMarker = null;
 let currentDisplayedMarker = null;
 
-
-// Positions fixes des capteurs (latitude, longitude)
+// Positions fixes des capteurs
 const sensorPositions = [
-    [45.1892, 5.7241], // Capteur 1
-    [45.1901, 5.7260], // Capteur 2
-    [45.1875, 5.7220],  // Capteur 3
+    [45.1892, 5.7241],
+    [45.1901, 5.7260],
+    [45.1875, 5.7220],
     [45.1563, 5.7102],
 ];
 
@@ -122,7 +167,7 @@ function showChart(data, marker = null) {
 }
 
 function hideChart() {
-    currentDisplayedMarker = null
+    currentDisplayedMarker = null;
     document.getElementById("chartContainer").style.display = "none";
 }
 
@@ -156,14 +201,12 @@ function showAverageChart(avg) {
    5) Mise à jour des cercles
 ----------------------------- */
 function updateMarkers() {
-    // Mettre à jour les valeurs des marqueurs
     markers.forEach(m => {
         m.data.co2 = Math.floor(Math.random() * 800 + 400);
         m.data.air = Math.floor(Math.random() * 100);
         m.data.temp = Math.floor(Math.random() * 15 + 10);
     });
 
-    // Calcul des moyennes
     let sumCO2 = 0, sumAir = 0, sumTemp = 0;
 
     markers.forEach(m => {
@@ -185,18 +228,21 @@ function updateMarkers() {
     }
 }
 
+/* -----------------------------
+   6) Connexion USB
+----------------------------- */
 let serialPort = null;
 let serialReader = null;
 
 async function connectSerial() {
-    try{
+    try {
         serialPort = await navigator.serial.requestPort();
         await serialPort.open({ baudRate: 9600 });
 
         serialReader = serialPort.readable.getReader();
         readSerialLoop();
     } catch(err) {
-        console.error("Errur connexion USB:", err);
+        console.error("Erreur connexion USB:", err);
     }
 }
 
@@ -208,8 +254,6 @@ async function readSerialLoop() {
         if (done) break;
 
         const text = decoder.decode(value).trim();
-
-        // Format attendu : "650,45,22"
         const parts = text.split(",");
 
         if (parts.length === 4) {
@@ -218,21 +262,22 @@ async function readSerialLoop() {
             const air = parseInt(parts[2]);
             const temp = parseInt(parts[3]);
 
-            // Mise à jour du premier cercle (ou autre)
-            if (markers[id]){
+            if (markers[id]) {
                 markers[id].data.co2 = co2;
                 markers[id].data.air = air;
                 markers[id].data.temp = temp;
+            }
 
             updateMarkers();
         }
     }
 }
 
-}
 document.getElementById("connectBtn").addEventListener("click", connectSerial);
 
-
+/* -----------------------------
+   7) Création des marqueurs
+----------------------------- */
 function createFixedMarkers() {
     const zoom = map.getZoom();
     const scale = Math.pow(1.3, zoom - 13);
@@ -248,14 +293,9 @@ function createFixedMarkers() {
         marker.lat = coords[0];
         marker.lon = coords[1];
         marker.id = index;
-        // Valeurs initiales
-        marker.data = {
-            co2: 0,
-            air: 0,
-            temp: 0
-        };
 
-        // Survol
+        marker.data = { co2: 0, air: 0, temp: 0 };
+
         marker.on("mouseover", () => {
             if (lockedMarker && lockedMarker !== marker) lockedMarker = null;
             showChart(marker.data, marker);
@@ -264,7 +304,6 @@ function createFixedMarkers() {
                 "Lat : " + marker.lat.toFixed(5) + "<br>" +
                 "Lon : " + marker.lon.toFixed(5)
             ).openPopup();
-            showChart(marker.data, marker);
         });
 
         marker.on("mouseout", () => {
@@ -275,31 +314,28 @@ function createFixedMarkers() {
         marker.on("click", () => {
             lockedMarker = marker;
             showChart(marker.data, marker);
-            marker.openPopup()
+            marker.openPopup();
         });
 
         markers.push(marker);
     });
 }
 
-
-
 /* -----------------------------
-   6) Taille dynamique au zoom
+   8) Taille dynamique au zoom
 ----------------------------- */
 map.on("zoomend", () => {
     const zoom = map.getZoom();
     const scale = Math.pow(1.3, zoom - 13);
-
     markers.forEach(m => m.setRadius(baseRadius * scale));
 });
 
 /* -----------------------------
-   7) Lancement
+   9) Lancement
 ----------------------------- */
-createFixedMarkers();   // crée les points une seule fois
-updateMarkers();        // met à jour les valeurs
-setInterval(updateMarkers, 5000); // met à jour les valeurs toutes les 5 sec
+createFixedMarkers();
+updateMarkers();
+setInterval(updateMarkers, 5000);
 
 </script>
 
