@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>   
+    <meta charset="UTF-8">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+
+        /* Panneau du graphique individuel */
+        #chartContainer {
+            position: absolute;
+            bottom: 20px;
+            right: 340px; /* décalé vers la gauche pour être à côté du graphique des moyennes */
+            width: 300px;
+            height: 200px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+
+
+        /* Panneau du graphique des moyennes */
+        #avgChartContainer {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            height: 200px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<button id="connectBtn" style="position:absolute; top:625px; left:20px; z-index:9999;">
+  Connecter le capteur USB
+</button>
+
+
+<div id="map"></div>
+
+<!-- Graphique individuel -->
+<div id="chartContainer">
+    <canvas id="chart"></canvas>
+</div>
+
+<!-- Graphique des moyennes -->
+<div id="avgChartContainer">
+    <canvas id="avgChart"></canvas>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+/* -----------------------------
+   1) Initialisation de la carte
+----------------------------- */
+const map = L.map('map').setView([45.1885, 5.7245], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap France & OSM contributors'
+}).addTo(map);
+
+let markers = [];
+const baseRadius = 20;
+let lockedMarker = null;
+let currentDisplayedMarker = null;
+
+
+// Positions fixes des capteurs (latitude, longitude)
+const sensorPositions = [
+    [45.1892, 5.7241], // Capteur 1
+    [45.1901, 5.7260], // Capteur 2
+    [45.1875, 5.7220],  // Capteur 3
+    [45.1563, 5.7102],
+];
+
+/* -----------------------------
+   3) Graphique individuel
+----------------------------- */
+let chart = null;
+
+function showChart(data, marker = null) {
+    currentDisplayedMarker = marker;
+
+    const container = document.getElementById("chartContainer");
+    container.style.display = "block";
+
+    const ctx = document.getElementById("chart").getContext("2d");
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["CO₂", "Qualité air", "Température"],
+            datasets: [{
+                data: [data.co2, data.air, data.temp],
+                backgroundColor: ["red", "green", "blue"]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function hideChart() {
+    currentDisplayedMarker = null
+    document.getElementById("chartContainer").style.display = "none";
+}
+
+/* -----------------------------
+   4) Graphique des moyennes
+----------------------------- */
+let avgChart = null;
+
+function showAverageChart(avg) {
+    const ctx = document.getElementById("avgChart").getContext("2d");
+
+    if (avgChart) avgChart.destroy();
+
+    avgChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["CO₂ moyen", "Air moyen", "Temp moyenne"],
+            datasets: [{
+                data: [avg.co2, avg.air, avg.temp],
+                backgroundColor: ["red", "green", "blue"]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+/* -----------------------------
+   5) Mise à jour des cercles
+----------------------------- */
+function updateMarkers() {
+    // Mettre à jour les valeurs des marqueurs
+    markers.forEach(m => {
+        m.data.co2 = Math.floor(Math.random() * 800 + 400);
+        m.data.air = Math.floor(Math.random() * 100);
+        m.data.temp = Math.floor(Math.random() * 15 + 10);
+    });
+
+    // Calcul des moyennes
+    let sumCO2 = 0, sumAir = 0, sumTemp = 0;
+
+    markers.forEach(m => {
+        sumCO2 += m.data.co2;
+        sumAir += m.data.air;
+        sumTemp += m.data.temp;
+    });
+
+    const avg = {
+        co2: Math.round(sumCO2 / markers.length),
+        air: Math.round(sumAir / markers.length),
+        temp: Math.round(sumTemp / markers.length)
+    };
+
+    showAverageChart(avg);
+
+    if (currentDisplayedMarker){
+        showChart(currentDisplayedMarker.data, currentDisplayedMarker);
+    }
+}
+
+let serialPort = null;
+let serialReader = null;
+
+async function connectSerial() {
+    try{
+        serialPort = await navigator.serial.requestPort();
+        await serialPort.open({ baudRate: 9600 });
+
+        serialReader = serialPort.readable.getReader();
+        readSerialLoop();
+    } catch(err) {
+        console.error("Errur connexion USB:", err);
+    }
+}
+
+async function readSerialLoop() {
+    const decoder = new TextDecoder();
+
+    while (true) {
+        const { value, done } = await serialReader.read();
+        if (done) break;
+
+        const text = decoder.decode(value).trim();
+
+        // Format attendu : "650,45,22"
+        const parts = text.split(",");
+
+        if (parts.length === 4) {
+            const id = parseInt(parts[0]);
+            const co2 = parseInt(parts[1]);
+            const air = parseInt(parts[2]);
+            const temp = parseInt(parts[3]);
+
+            // Mise à jour du premier cercle (ou autre)
+            if (markers[id]){
+                markers[id].data.co2 = co2;
+                markers[id].data.air = air;
+                markers[id].data.temp = temp;
+
+            updateMarkers();
+        }
+    }
+}
+
+}
+document.getElementById("connectBtn").addEventListener("click", connectSerial);
+
+
+function createFixedMarkers() {
+    const zoom = map.getZoom();
+    const scale = Math.pow(1.3, zoom - 13);
+
+    sensorPositions.forEach((coords, index) => {
+        const marker = L.circleMarker(coords, {
+            radius: baseRadius * scale,
+            color: "blue",
+            fillColor: "cyan",
+            fillOpacity: 0.5
+        }).addTo(map);
+
+        marker.lat = coords[0];
+        marker.lon = coords[1];
+        marker.id = index;
+        // Valeurs initiales
+        marker.data = {
+            co2: 0,
+            air: 0,
+            temp: 0
+        };
+
+        // Survol
+        marker.on("mouseover", () => {
+            if (lockedMarker && lockedMarker !== marker) lockedMarker = null;
+            showChart(marker.data, marker);
+            marker.bindPopup(
+                "<b>Capteur " + (marker.id + 1) + "</b><br>" +
+                "Lat : " + marker.lat.toFixed(5) + "<br>" +
+                "Lon : " + marker.lon.toFixed(5)
+            ).openPopup();
+            showChart(marker.data, marker);
+        });
+
+        marker.on("mouseout", () => {
+            if (lockedMarker !== marker) hideChart();
+            marker.closePopup();
+        });
+
+        marker.on("click", () => {
+            lockedMarker = marker;
+            showChart(marker.data, marker);
+            marker.openPopup()
+        });
+
+        markers.push(marker);
+    });
+}
+
+
+
+/* -----------------------------
+   6) Taille dynamique au zoom
+----------------------------- */
+map.on("zoomend", () => {
+    const zoom = map.getZoom();
+    const scale = Math.pow(1.3, zoom - 13);
+
+    markers.forEach(m => m.setRadius(baseRadius * scale));
+});
+
+/* -----------------------------
+   7) Lancement
+----------------------------- */
+createFixedMarkers();   // crée les points une seule fois
+updateMarkers();        // met à jour les valeurs
+setInterval(updateMarkers, 5000); // met à jour les valeurs toutes les 5 sec
+
+</script>
+
+</body>
+</html>
