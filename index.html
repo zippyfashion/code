@@ -14,7 +14,18 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            font-family: "Segoe UI", Roboto, Arial, sans-serif;
+            background:#f5f6fa;
+            color: #333;
+        }
+        header{
+            width: 100%;
+            background: #1e293b;
+            color: white;
+            padding: 15px 25px;
+            font-size: 22px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
         /* Carte responsive */
@@ -22,25 +33,34 @@
             width: 100%;
             height: 60vh;
             min-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0,0.15);
+            margin-bottom: 15px;
         }
 
         /* Conteneur des graphiques */
         #chartsWrapper {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
-            padding: 10px;
+            gap: 20px;
+            padding: 15px;
             justify-content: center;
         }
 
         /* Panneaux des graphiques */
         .chartBox {
             background: white;
-            border-radius: 8px;
-            padding: 10px;
-            width: 320px;
-            height: 220px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            width: 340x;
+            height: 240px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+            border: 1px solid #e2e8f0;
+            transition: 0.25s ease;
+        }
+        .chartBox:hover{
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 18);
         }
 
         /* Bouton USB */
@@ -49,16 +69,21 @@
             bottom: 20px;
             left: 20px;
             z-index: 9999;
-            padding: 10px 15px;
+            padding: 14px 22px;
             font-size: 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0,0.25);
+            transition: 0.2s;
+        }
+        #connectBtn:over{
+            background: #1e40af;
+            transform: translateY(-2px);
         }
 
-        /* --- PC grands écrans --- */
-        @media (min-width: 1200px) {
-            #map {
-                height: 70vh;
-            }
-        }
 
         /* --- Tablettes --- */
         @media (max-width: 1024px) {
@@ -72,8 +97,13 @@
 
         /* --- Smartphones --- */
         @media (max-width: 600px) {
-            #map {
+            header{
+                font-size: 18px;
+                padding: 12px 18px;
+            }
+            #map{
                 height: 50vh;
+                border-radius: 0;
             }
 
             .chartBox {
@@ -82,10 +112,10 @@
             }
 
             #connectBtn {
-                bottom: 10px;
-                left: 10px;
+                bottom: 12px;
+                left: 12px;
                 font-size: 14px;
-                padding: 8px 12px;
+                padding: 10px 14px;
             }
         }
     </style>
@@ -129,10 +159,9 @@ let currentDisplayedMarker = null;
 
 // Positions fixes des capteurs
 const sensorPositions = [
-    [45.1892, 5.7241],
-    [45.1901, 5.7260],
     [45.1875, 5.7220],
     [45.1563, 5.7102],
+    [45.17821, 5.73783],
 ];
 
 /* -----------------------------
@@ -258,13 +287,15 @@ async function readSerialLoop() {
 
         if (parts.length === 4) {
             const id = parseInt(parts[0]);
-            const co2 = parseInt(parts[1]);
-            const air = parseInt(parts[2]);
-            const temp = parseInt(parts[3]);
+            const lat = parseFloat(parts[1]);
+            const lon = parseFloat(parts[2]);
+            const co2 = parseInt(parts[3]);
+            const air = parseInt(parts[4]);
+            const temp = parseInt(parts[5]);
 
             if (markers[id]) {
                 markers[id].data.co2 = co2;
-                markers[id].data.air = air;
+                markers[id].data.air = air;l
                 markers[id].data.temp = temp;
             }
 
