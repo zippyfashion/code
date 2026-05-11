@@ -1,374 +1,579 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
+<!DOCTYPE html> 
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<html lang="fr"> 
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<head> 
 
-    <style>
-        /* --- Mise en page générale --- */
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: "Segoe UI", Roboto, Arial, sans-serif;
-            background:#f5f6fa;
-            color: #333;
-        }
-        header{
-            width: 100%;
-            background: #1e293b;
-            color: white;
-            padding: 15px 25px;
-            font-size: 22px;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
+<meta charset="UTF-8"> 
 
-        /* Carte responsive */
-        #map {
-            width: 100%;
-            height: 60vh;
-            min-height: 300px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0,0.15);
-            margin-bottom: 15px;
-        }
+ 
 
-        /* Conteneur des graphiques */
-        #chartsWrapper {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            padding: 15px;
-            justify-content: center;
-        }
+<!-- Leaflet --> 
 
-        /* Panneaux des graphiques */
-        .chartBox {
-            background: white;
-            border-radius: 12px;
-            padding: 15px;
-            width: 340x;
-            height: 240px;
-            box-shadow: 0 6px 15px rgba(0,0,0,0.12);
-            border: 1px solid #e2e8f0;
-            transition: 0.25s ease;
-        }
-        .chartBox:hover{
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 18);
-        }
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/> 
 
-        /* Bouton USB */
-        #connectBtn {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            z-index: 9999;
-            padding: 14px 22px;
-            font-size: 16px;
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0,0.25);
-            transition: 0.2s;
-        }
-        #connectBtn:over{
-            background: #1e40af;
-            transform: translateY(-2px);
-        }
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script> 
 
+ 
 
-        /* --- Tablettes --- */
-        @media (max-width: 1024px) {
-            #map {
-                height: 55vh;
-            }
-            .chartBox {
-                width: 45%;
-            }
-        }
+<!-- Chart.js --> 
 
-        /* --- Smartphones --- */
-        @media (max-width: 600px) {
-            header{
-                font-size: 18px;
-                padding: 12px 18px;
-            }
-            #map{
-                height: 50vh;
-                border-radius: 0;
-            }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
 
-            .chartBox {
-                width: 100%;
-                height: auto;
-            }
+ 
 
-            #connectBtn {
-                bottom: 12px;
-                left: 12px;
-                font-size: 14px;
-                padding: 10px 14px;
-            }
-        }
-    </style>
-</head>
+<style> 
 
-<body>
+body { 
 
-<button id="connectBtn">Connecter le capteur USB</button>
+    margin:0; 
 
-<div id="map"></div>
+    font-family: Arial; 
 
-<!-- Conteneur responsive des graphiques -->
-<div id="chartsWrapper">
-    <div id="chartContainer" class="chartBox" style="display:none;">
-        <canvas id="chart"></canvas>
-    </div>
+    background:#f5f6fa; 
 
-    <div id="avgChartContainer" class="chartBox">
-        <canvas id="avgChart"></canvas>
-    </div>
-</div>
+} 
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+ 
 
-<script>
-/* -----------------------------
-   1) Initialisation de la carte
------------------------------ */
-const map = L.map('map').setView([45.1885, 5.7245], 13);
+header { 
 
-L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap France & OSM contributors'
-}).addTo(map);
+    background:#1e293b; 
 
-let markers = [];
-const baseRadius = 20;
-let lockedMarker = null;
-let currentDisplayedMarker = null;
+    color:white; 
 
-// Positions fixes des capteurs
-const sensorPositions = [
-    [45.1875, 5.7220],
-    [45.1563, 5.7102],
-    [45.17821, 5.73783],
-];
+    padding:15px; 
 
-/* -----------------------------
-   3) Graphique individuel
------------------------------ */
-let chart = null;
+    font-size:20px; 
 
-function showChart(data, marker = null) {
-    currentDisplayedMarker = marker;
+} 
 
-    const container = document.getElementById("chartContainer");
-    container.style.display = "block";
+ 
 
-    const ctx = document.getElementById("chart").getContext("2d");
+#map { 
 
-    if (chart) chart.destroy();
+    width:100%; 
 
-    chart = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: ["CO₂", "Qualité air", "Température"],
-            datasets: [{
-                data: [data.co2, data.air, data.temp],
-                backgroundColor: ["red", "green", "blue"]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } }
-        }
-    });
-}
+    height:60vh; 
 
-function hideChart() {
-    currentDisplayedMarker = null;
-    document.getElementById("chartContainer").style.display = "none";
-}
+} 
 
-/* -----------------------------
-   4) Graphique des moyennes
------------------------------ */
-let avgChart = null;
+ 
 
-function showAverageChart(avg) {
-    const ctx = document.getElementById("avgChart").getContext("2d");
+#chartsWrapper { 
 
-    if (avgChart) avgChart.destroy();
+    display:flex; 
 
-    avgChart = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: ["CO₂ moyen", "Air moyen", "Temp moyenne"],
-            datasets: [{
-                data: [avg.co2, avg.air, avg.temp],
-                backgroundColor: ["red", "green", "blue"]
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } }
-        }
-    });
-}
+    justify-content:center; 
 
-/* -----------------------------
-   5) Mise à jour des cercles
------------------------------ */
-function updateMarkers() {
-    markers.forEach(m => {
-        m.data.co2 = Math.floor(Math.random() * 800 + 400);
-        m.data.air = Math.floor(Math.random() * 100);
-        m.data.temp = Math.floor(Math.random() * 15 + 10);
-    });
+    gap:20px; 
 
-    let sumCO2 = 0, sumAir = 0, sumTemp = 0;
+    padding:15px; 
 
-    markers.forEach(m => {
-        sumCO2 += m.data.co2;
-        sumAir += m.data.air;
-        sumTemp += m.data.temp;
-    });
+} 
 
-    const avg = {
-        co2: Math.round(sumCO2 / markers.length),
-        air: Math.round(sumAir / markers.length),
-        temp: Math.round(sumTemp / markers.length)
-    };
+ 
 
-    showAverageChart(avg);
+/* Graph box */ 
 
-    if (currentDisplayedMarker){
-        showChart(currentDisplayedMarker.data, currentDisplayedMarker);
-    }
-}
+.chartBox { 
 
-/* -----------------------------
-   6) Connexion USB
------------------------------ */
-let serialPort = null;
-let serialReader = null;
+    background:white; 
 
-async function connectSerial() {
-    try {
-        serialPort = await navigator.serial.requestPort();
-        await serialPort.open({ baudRate: 9600 });
+    padding:15px; 
 
-        serialReader = serialPort.readable.getReader();
-        readSerialLoop();
-    } catch(err) {
-        console.error("Erreur connexion USB:", err);
-    }
-}
+    border-radius:10px; 
 
-async function readSerialLoop() {
-    const decoder = new TextDecoder();
+    width:500px; 
 
-    while (true) {
-        const { value, done } = await serialReader.read();
-        if (done) break;
+} 
 
-        const text = decoder.decode(value).trim();
-        const parts = text.split(",");
+ 
 
-        if (parts.length === 4) {
-            const id = parseInt(parts[0]);
-            const lat = parseFloat(parts[1]);
-            const lon = parseFloat(parts[2]);
-            const co2 = parseInt(parts[3]);
-            const air = parseInt(parts[4]);
-            const temp = parseInt(parts[5]);
+/* Legende */ 
 
-            if (markers[id]) {
-                markers[id].data.co2 = co2;
-                markers[id].data.air = air;l
-                markers[id].data.temp = temp;
-            }
+#legend { 
 
-            updateMarkers();
-        }
-    }
-}
+    background:white; 
 
-document.getElementById("connectBtn").addEventListener("click", connectSerial);
+    padding:10px; 
 
-/* -----------------------------
-   7) Création des marqueurs
------------------------------ */
-function createFixedMarkers() {
-    const zoom = map.getZoom();
-    const scale = Math.pow(1.3, zoom - 13);
+    border-radius:10px; 
 
-    sensorPositions.forEach((coords, index) => {
-        const marker = L.circleMarker(coords, {
-            radius: baseRadius * scale,
-            color: "blue",
-            fillColor: "cyan",
-            fillOpacity: 0.5
-        }).addTo(map);
+    width:180px; 
 
-        marker.lat = coords[0];
-        marker.lon = coords[1];
-        marker.id = index;
+} 
 
-        marker.data = { co2: 0, air: 0, temp: 0 };
+ 
 
-        marker.on("mouseover", () => {
-            if (lockedMarker && lockedMarker !== marker) lockedMarker = null;
-            showChart(marker.data, marker);
-            marker.bindPopup(
-                "<b>Capteur " + (marker.id + 1) + "</b><br>" +
-                "Lat : " + marker.lat.toFixed(5) + "<br>" +
-                "Lon : " + marker.lon.toFixed(5)
-            ).openPopup();
-        });
+.legend-item { 
 
-        marker.on("mouseout", () => {
-            if (lockedMarker !== marker) hideChart();
-            marker.closePopup();
-        });
+    display:flex; 
 
-        marker.on("click", () => {
-            lockedMarker = marker;
-            showChart(marker.data, marker);
-            marker.openPopup();
-        });
+    align-items:center; 
 
-        markers.push(marker);
-    });
-}
+    margin-bottom:8px; 
 
-/* -----------------------------
-   8) Taille dynamique au zoom
------------------------------ */
-map.on("zoomend", () => {
-    const zoom = map.getZoom();
-    const scale = Math.pow(1.3, zoom - 13);
-    markers.forEach(m => m.setRadius(baseRadius * scale));
-});
+} 
 
-/* -----------------------------
-   9) Lancement
------------------------------ */
-createFixedMarkers();
-updateMarkers();
-setInterval(updateMarkers, 5000);
+ 
 
-</script>
+.color-box { 
 
-</body>
-</html>
+    width:15px; 
+
+    height:15px; 
+
+    margin-right:8px; 
+
+    border:1px solid black; 
+
+} 
+
+ 
+
+button { 
+
+    padding:8px; 
+
+    cursor:pointer; 
+
+} 
+
+</style> 
+
+</head> 
+
+ 
+
+<body> 
+
+ 
+
+<header>Dashboard Capteurs</header> 
+
+ 
+
+<div id="map"></div> 
+
+ 
+
+<div id="chartsWrapper"> 
+
+ 
+
+<!-- GRAPHE --> 
+
+<div class="chartBox"> 
+
+ 
+
+<h3 id="selectedId">Cliquez sur un point pour commencer</h3> 
+
+<p id="airQualityText"></p> 
+
+ 
+
+<button class="tabBtn active" data-tab="temp">Température</button> 
+
+<button class="tabBtn" data-tab="hum">Humidité</button> 
+
+ 
+
+<canvas id="lineChart"></canvas> 
+
+ 
+
+</div> 
+
+ 
+
+<!-- LEGENDE --> 
+
+<div id="legend"> 
+
+    <h4>Légende air</h4> 
+
+ 
+
+    <div class="legend-item"> 
+
+        <div class="color-box" style="background:#00ffcc"></div> Excellent 
+
+    </div> 
+
+    <div class="legend-item"> 
+
+        <div class="color-box" style="background:#00ff00"></div> Très bon 
+
+    </div> 
+
+    <div class="legend-item"> 
+
+        <div class="color-box" style="background:#88ff88"></div> Bon 
+
+    </div> 
+
+    <div class="legend-item"> 
+
+        <div class="color-box" style="background:#ffff00"></div> Moyen 
+
+    </div> 
+
+    <div class="legend-item"> 
+
+        <div class="color-box" style="background:#ff0000"></div> Mauvais 
+
+    </div> 
+
+</div> 
+
+ 
+
+</div> 
+
+ 
+
+<script> 
+
+ 
+
+// 🔥 FIREBASE 
+
+const BASE = "https://projet-nem-62a33-default-rtdb.europe-west1.firebasedatabase.app/"; 
+
+ 
+
+// 🗺️ CARTE 
+
+const map = L.map('map').setView([45.1885, 5.7245], 13); 
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map); 
+
+ 
+
+let markers = {}; 
+
+let selectedMarkerId = null; 
+
+ 
+
+// 📊 HISTORIQUE 
+
+let history = {}; 
+
+let chart; 
+
+ 
+
+// 📊 GRAPH 
+
+function updateGraph(id, mode="temp") { 
+
+ 
+
+    if(!chart){ 
+
+        chart = new Chart(document.getElementById("lineChart"), { 
+
+            type:"line", 
+
+            data:{ labels:[], datasets:[] } 
+
+        }); 
+
+    } 
+
+ 
+
+    let source = history[id]; 
+
+    if (!source) return; 
+
+ 
+
+    chart.data.labels = source.time; 
+
+ 
+
+    chart.data.datasets = [{ 
+
+        label: mode === "temp" ? "Température (°C)" : "Humidité (%)", 
+
+        data: mode === "temp" ? source.temp : source.hum, 
+
+        borderColor: mode === "temp" ? "red" : "blue", 
+
+        fill:false 
+
+    }]; 
+
+ 
+
+    chart.update(); 
+
+} 
+
+ 
+
+// 🎨 QUALITÉ AIR TEXTE 
+
+function getAirQualityText(a) { 
+
+    if (a < 20) return "Qualité de l’air : Excellente ✅"; 
+
+    if (a < 40) return "Qualité de l’air : Très bonne 👍"; 
+
+    if (a < 60) return "Qualité de l’air : Bonne 🙂"; 
+
+    if (a < 80) return "Qualité de l’air : Moyenne ⚠️"; 
+
+    return "Qualité de l’air : Mauvaise ❌"; 
+
+} 
+
+ 
+
+// 🎨 COULEUR 
+
+function getAirColor(a) { 
+
+    if (a < 20) return "#00ffcc"; 
+
+    if (a < 40) return "#00ff00"; 
+
+    if (a < 60) return "#88ff88"; 
+
+    if (a < 80) return "#ffff00"; 
+
+    return "#ff0000"; 
+
+} 
+
+ 
+
+// 📡 DATA (carte) 
+
+function lireData() { 
+
+    fetch(BASE + "data.json") 
+
+    .then(r=>r.json()) 
+
+    .then(data=>{ 
+
+ 
+
+        if(!data) return; 
+
+ 
+
+        for(let id in data){ 
+
+ 
+
+            let d = data[id]; 
+
+ 
+
+            if(!markers[id]){ 
+
+                markers[id] = L.circleMarker([d.lat,d.lon], { 
+
+                    radius:10, 
+
+                    color:"#000", 
+
+                    weight:2, 
+
+                    fillOpacity:0.8 
+
+                }).addTo(map); 
+
+ 
+
+                markers[id].on("click", ()=>{ 
+
+ 
+
+                    selectedMarkerId = id; 
+
+ 
+
+                    document.getElementById("selectedId").innerText = 
+
+                        "Capteur sélectionné : " + id; 
+
+ 
+
+                    document.getElementById("airQualityText").innerText = 
+
+                        getAirQualityText(d.air); 
+
+ 
+
+                    updateGraph(id, getMode()); 
+
+                }); 
+
+            } 
+
+ 
+
+            markers[id].setLatLng([d.lat,d.lon]); 
+
+ 
+
+            let color = getAirColor(d.air); 
+
+ 
+
+            markers[id].setStyle({ 
+
+                color:color, 
+
+                fillColor:color 
+
+            }); 
+
+        } 
+
+    }); 
+
+} 
+
+ 
+
+// 📈 HISTORY 
+
+function lireHistory() { 
+
+ 
+
+    fetch(BASE + "history.json") 
+
+    .then(r=>r.json()) 
+
+    .then(data=>{ 
+
+ 
+
+        if(!data) return; 
+
+ 
+
+        history = {}; 
+
+ 
+
+        for(let key in data){ 
+
+ 
+
+            let d = data[key]; 
+
+ 
+
+            if(!history[d.id]){ 
+
+                history[d.id] = { time:[], temp:[], hum:[] }; 
+
+            } 
+
+ 
+
+            history[d.id].time.push(d.time); 
+
+            history[d.id].temp.push(d.temp); 
+
+            history[d.id].hum.push(d.air); 
+
+ 
+
+            if(history[d.id].time.length > 20){ 
+
+                history[d.id].time.shift(); 
+
+                history[d.id].temp.shift(); 
+
+                history[d.id].hum.shift(); 
+
+            } 
+
+        } 
+
+ 
+
+        if(selectedMarkerId !== null){ 
+
+            updateGraph(selectedMarkerId, getMode()); 
+
+        } 
+
+    }); 
+
+} 
+
+ 
+
+// 🔘 MODE 
+
+function getMode(){ 
+
+    return document.querySelector(".tabBtn.active").dataset.tab; 
+
+} 
+
+ 
+
+// 🔘 BOUTONS 
+
+document.querySelectorAll(".tabBtn").forEach(btn=>{ 
+
+    btn.addEventListener("click", ()=>{ 
+
+        document.querySelectorAll(".tabBtn").forEach(b=>b.classList.remove("active")); 
+
+        btn.classList.add("active"); 
+
+ 
+
+        if(selectedMarkerId !== null){ 
+
+            updateGraph(selectedMarkerId, getMode()); 
+
+        } 
+
+    }); 
+
+}); 
+
+ 
+
+// 🔁 LOOP 
+
+setInterval(()=>{ 
+
+    lireData(); 
+
+    lireHistory(); 
+
+}, 5000); 
+
+ 
+
+lireData(); 
+
+lireHistory(); 
+
+ 
+
+</script> 
+
+ 
+
+</body> 
+
+</html> 
+
+ 
